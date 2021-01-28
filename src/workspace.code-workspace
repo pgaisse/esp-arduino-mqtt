@@ -1,0 +1,12 @@
+{
+	"folders": [
+		{
+			"path": "..\\..\\..\\..\\..\\..\\Desktop\\Arduino-esp"
+		},
+		{
+			"name": "esp-arduino-mqtt",
+			"path": ".."
+		}
+	],
+	"settings": {}
+}
