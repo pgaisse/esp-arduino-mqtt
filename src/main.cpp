@@ -1,39 +1,21 @@
-/*
- Basic ESP8266 MQTT example
-
- This sketch demonstrates the capabilities of the pubsub library in combination
- with the ESP8266 board/library.
-
- It connects to an MQTT server then:
-  - publishes "hello world" to the topic "outTopic" every two seconds
-  - subscribes to the topic "inTopic", printing out any messages
-    it receives. NB - it assumes the received payloads are strings not binary
-  - If the first character of the topic "inTopic" is an 1, switch ON the ESP Led,
-    else switch it off
-
- It will reconnect to the server if the connection is lost using a blocking
- reconnect function. See the 'mqtt_reconnect_nonblocking' example for how to
- achieve the same result without blocking the main loop.
-
- To install the ESP8266 board, (using Arduino 1.6.4+):
-  - Add the following 3rd party board manager under "File -> Preferences -> Additional Boards Manager URLs":
-       http://arduino.esp8266.com/stable/package_esp8266com_index.json
-  - Open the "Tools -> Board -> Board Manager" and click install for the ESP8266"
-  - Select your ESP8266 in "Tools -> Board"
-
-*/
 
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
 
 // Update these with values suitable for your network.
-
+String mensaje= "", strtopic="",strmsg;
 const char* ssid = "RU";
 const char* password = "1234567890";
+//const char* ssid = "pato";
+//const char* password = "1234567890";
 //const char* mqtt_server = "test.mosquitto.org";
 const char* mqtt_server = "192.168.1.83";
 const char* usr = "pgaisse";
 const char* psw = "patoch";
+double x=0;
+float msgtofloat;
+float val=0.0;
+int  sensor=0;
 int ns=0,values=0,statuss=0;
 char buffern[50];
 char bufferv[50];
@@ -44,7 +26,8 @@ WiFiClient espClient;
 PubSubClient client(espClient);
 long lastMsg = 0;
 char msg[50];
-int value = 0;
+char msg2[50];
+int value=0;
 
 void setup_wifi() {
 
@@ -69,25 +52,25 @@ void setup_wifi() {
   Serial.println(WiFi.localIP());
 }
 
+
 void callback(char* topic, byte* payload, unsigned int length) {
   Serial.print("Message arrived [");
   Serial.print(topic);
   Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
+  
+  strtopic=String((const char*)topic);
+  mensaje= String((const char*)payload);
+  Serial.println(mensaje.toDouble());
+  if(strtopic=="zona1/get/temperature"){
+    if(mensaje.toDouble() >=25){
+      digitalWrite(D1, HIGH);
+    }
+    else{
+      digitalWrite(D1, LOW);
+    }
   }
-  Serial.println();
-
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BUILTIN_LED, LOW);   // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is active low on the ESP-01)
-  } else {
-    digitalWrite(BUILTIN_LED, HIGH);  // Turn the LED off by making the voltage HIGH
-  }
-
 }
+
 
 void reconnect() {
   // Loop until we're reconnected
@@ -100,9 +83,11 @@ void reconnect() {
     if (client.connect(clientId.c_str(),usr,psw)) {
       Serial.println("connected");
       // Once connected, publish an announcement...
-      client.publish("msg1", "hello world");
       // ... and resubscribe
+      client.subscribe("zona1/get/temperature");
+      client.subscribe("zona1/get/humidity");
       client.subscribe("msg1");
+
     } else {
       Serial.print("failed, rc=");
       Serial.print(client.state());
@@ -120,36 +105,37 @@ void setup() {
   setup_wifi();
   client.setServer(mqtt_server, 1883);
   client.setCallback(callback);
+  pinMode(D1,OUTPUT);
+
 }
 
-void loop() {
 
+void loop() {
   if (!client.connected()) {
     reconnect();
   }
   client.loop();
-  ns=1;
-  values=random(200, 210);
-  statuss=random(0,2);
-
-  sprintf(buffern,  "%4s%s%04d%04d%04d%s","msg1","SENSOR", ns, values, statuss,"Sensor de Nivel");
-  //snprintf (buffern, 50, "Sensor1ewwqwe #%ld", value);
-  ns=2;
-  values=random(100, 105);
-  statuss=random(0,2);
-  sprintf(bufferv,  "%4s%s%04d%04d%04d%s","msg2","SENSOR", ns, values, statuss,"Sensor de Nivel");
-    
- // values=string(random(0,255))
+  val=  random(0,100);
+  //sensor=analogRead(A0);
+  
+  statuss=digitalRead(D1);
+  if (statuss==1){
+    msg2[0]='1';
+  }
+  else
+  {
+    msg2[0]='0';
+  }
   
   long now = millis();
-  if (now - lastMsg > 2000) {
-    Serial.println(buffern);
+  if (now - lastMsg > 1000) {
+    int sensorValue = analogRead(A0); //Lectura del ADC 
+    float temp = sensorValue * (3.3*1000 / 1023.0); //escalamos a voltaje 
     lastMsg = now;
     ++value;
-    snprintf (msg, 50, "Sensor1 #%ld", value);
-    Serial.print("Publish message: ");
-    Serial.println(msg);
+    sprintf (buffern, "%d/%3.2f", statuss,temp);
+    //sprintf (buffern, "%c", statuss);
     client.publish("msg1", buffern);
-    client.publish("msg2", bufferv);
-  }
+    Serial.println(temp);
+    }
 }
